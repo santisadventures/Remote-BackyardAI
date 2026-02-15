@@ -1,0 +1,52 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    networks:
+      - santisplayground
+    # API is only used inside the docker network by default.
+    expose:
+      - "11434"
+
+  gateway:
+    build:
+      context: ./gateway
+    image: santisplayground-ssh:latest
+    container_name: chatbox
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    networks:
+      - santisplayground
+    # Recommended: bind only to your Tailscale IP (100.x).
+    # Export TS_IP before `docker compose up`:
+    #   export TS_IP="$(tailscale ip -4)"
+    ports:
+      - "${TS_IP:-127.0.0.1}:2222:2222"
+    environment:
+      - USER_NAME=${GATEWAY_USER:-friend1}
+      # Force-command is set inside authorized_keys by PUBLIC_KEY below.
+      - PUBLIC_KEY=${GATEWAY_PUBLIC_KEY:-}
+      - PASSWORD_ACCESS=false
+      - SUDO_ACCESS=false
+      - OLLAMA_HOST=http://ollama:11434
+      # UI formatting
+      - LEFT_PAD=12
+      - HARD_WRAP=38
+      # Privacy
+      - RETENTION_MINUTES=1440
+      - PRIVACY_SWEEP_SECONDS=3600
+    volumes:
+      - gateway-config:/config
+
+networks:
+  santisplayground:
+    name: santisplayground
+
+volumes:
+  ollama:
+  gateway-config:
+
