@@ -58,6 +58,22 @@ Ollama Container
 ↓  
 Local LLM Inference
 
+### Architecture Diagram (At a Glance)
+
+```text
+[Phone / Laptop]
+      |
+  SSH over Tailscale (private mesh)
+      |
+[Gateway Container]  (forced command, no shell)
+      |
+ Docker internal network
+      |
+[Ollama Container]   (local inference)
+      |
+ [Local Models]
+```
+
 There is:
 
 - No public HTTP endpoint
@@ -279,4 +295,3 @@ This repository demonstrates practical experience with:
 ## License
 
 Pick a license before publishing (MIT / Apache-2.0 / etc.). This template includes an MIT license stub.
-
