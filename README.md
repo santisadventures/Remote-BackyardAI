@@ -1,134 +1,190 @@
-# Remeto-BackyardAI by Santisplayground
+# Remote-BackyardAI
 
-**Private Remote AI. Runs on your machine.**
+**Private Remote AI Infrastructure – Security-Focused Design**
 
-RemoteSantis is a remote, phone-friendly AI chat system that runs entirely on your own hardware using local LLMs.
+Remote-BackyardAI is a security-oriented infrastructure experiment designed to explore:
 
-You connect from anywhere.  
-The models never leave your machine.
+- Private remote access architecture
+- SSH hardening strategies
+- Attack surface reduction
+- Container isolation boundaries
+- Local-first AI inference
+- Zero public exposure design
 
-Tested on **Apple Silicon Mac (M4)**.
+This project demonstrates defensive infrastructure thinking rather than feature development.
 
----
+All model inference runs locally.  
+Remote access is achieved without exposing public ports.
 
-## Threat Model
-
-For a security-oriented overview of assumptions, mitigations, and residual risk, see:
-
-- `THREAT_MODEL.md`
-
-## What This Is
-
-RemoteSantis gives you:
-
-- A **remote AI assistant** accessible from your phone or laptop
-- Local LLM inference (via Ollama)
-- Private, invite-only access
-- No public web exposure
-- No shell access for users (chat-only environment)
-
-This is not a SaaS wrapper.  
-This is remote access to your own AI machine.
+Tested stable on **Apple Silicon Mac (M4)**.
 
 ---
 
-## Core Architecture
+## Why This Exists (Startup-Friendly, Security-Aware)
 
-Remote access  
-Local inference  
-Private network only  
+This is a practical template you can pilot quickly, without building a full web app or exposing a public web endpoint.
 
-### Stack Overview
+It’s built to communicate well to a mixed audience:
 
-1. Tailscale creates a private encrypted mesh network.
-2. Users connect remotely via SSH (Termius recommended).
-3. SSH lands inside a Docker gateway container.
-4. SSH keys are configured with a forced `command="..."`.
+- non-technical stakeholders (clear and simple access story)
+- security-minded reviewers (explicit boundaries and controls)
 
-## Documentation
+---
 
-- `ARCHITECTURE.md` (how the system is structured)
-- `THREAT_MODEL.md` (what threats we considered)
+## Design Objectives
+
+1. Enable remote access without public internet exposure
+2. Eliminate password-based authentication
+3. Prevent interactive shell access
+4. Restrict service binding scope
+5. Minimize container responsibility
+6. Clearly define trust boundaries
+
+Security was considered first, convenience second.
+
+---
+
+## High-Level Architecture
+
+User Device  
+↓  
+SSH over Tailscale (Private Mesh Network)  
+↓  
+Gateway Container (Forced Command Only)  
+↓  
+Docker Internal Network  
+↓  
+Ollama Container  
+↓  
+Local LLM Inference
+
+There is:
+
+- No public HTTP endpoint
+- No router port forwarding (recommended)
+- No password authentication
+- No interactive shell access
+
+---
+
+## Documentation (Security-First)
+
+- `ARCHITECTURE.md` (system structure and boundaries)
+- `THREAT_MODEL.md` (assets, threats, mitigations, residual risk)
 - `SECURITY.md` (security policy and reporting)
-5. The gateway calls Ollama over Docker’s internal network.
-6. Ollama runs models locally on your host.
-
-There is no public HTTP endpoint.  
-There is no browser UI.  
-There is no exposed router port.
 
 ---
 
-## What Makes This Different
+## Security Decisions Explained
 
-### Remote Without Being Internet-Facing
+### Why SSH Instead of HTTP?
 
-- Docker binds SSH only to the host’s Tailscale IP (100.x)
-- No router port-forwarding required
-- Only authenticated Tailscale devices can reach the service
+- Mature key-based authentication
+- Smaller exposed surface
+- Avoids common web server attack classes
+- Simple revocation model (remove a key, access is gone)
 
-### Controlled Capability
+### Why Forced Command?
 
-- SSH key authentication only
-- Forced-command gateway (no interactive shell)
-- Easy access revocation
+SSH is configured with a forced command (`command="..."` in `authorized_keys`):
 
-### Local-First AI
+- Prevents shell access
+- Prevents arbitrary command execution
+- Limits capability to the chat program only
 
-- Models run via Ollama in Docker
-- No external inference calls
-- Works offline once connected to Tailscale
+Principle applied: Least Privilege.
+
+### Why Bind Only to the Tailscale IP?
+
+Binding to `0.0.0.0` increases exposure.
+
+Instead, bind the SSH port to your host’s Tailscale IP (100.x):
+
+- Service is reachable only inside the private mesh
+- No router port forwarding required
+- Reduces scanning and remote exploitation risk
 
 ---
 
-## Security Model (Realistic View)
+## Threat Model Summary
 
-This setup reduces attack surface, but nothing is unhackable.
+Assets considered:
 
-### Risk Categories
+- Host machine
+- Docker daemon
+- Gateway container
+- Ollama container
+- SSH keys
+- Tailscale identity
+
+Threats considered:
+
+- Unauthorized remote access
+- SSH key compromise
+- Container escape / privilege escalation
+- Misconfiguration exposure
+- Supply chain vulnerabilities
+
+See `THREAT_MODEL.md` for full analysis.
+
+---
+
+## Security Controls Implemented (Template Baseline)
+
+- SSH key-only authentication (no passwords)
+- Forced-command execution (no interactive shell)
+- Docker internal networking (gateway can reach Ollama; Ollama not exposed externally)
+- Tailscale-only exposure (recommended binding)
+- Minimal container responsibility (single-purpose design)
+
+---
+
+## Known Limitations (Residual Risk)
+
+This is not a production-hardened enterprise system.
+
+Residual risks include:
 
 - Compromised user device (stolen SSH key)
-- Misconfiguration (binding to `0.0.0.0`)
-- Vulnerable Docker images
-- Bugs in gateway scripts
-- Host OS vulnerabilities
+- Docker zero-day vulnerability
+- Host OS compromise
+- Tailscale account compromise
 
-### What This Design Avoids
-
-- Public web endpoints
-- Password authentication
-- Direct host shell access
-- Public cloud inference
-
-Containers are isolation layers — not perfect security boundaries.
+Security is risk reduction, not risk elimination.
 
 ---
 
-## Data & Privacy
+## Production Hardening Roadmap
 
-Designed behavior:
+If deploying in production, consider:
 
-- Inference runs locally
-- No persistent chat storage required
-- Optional log auto-purge (24h retention)
-
-Caveats:
-
-- Tailscale uses a cloud coordination plane (traffic is end-to-end encrypted)
-- Termius may sync configs if enabled
-- Mobile devices may store scrollback locally
+- Rootless Docker
+- Rate limiting / fail2ban-like controls
+- Key rotation policy
+- Mandatory MFA on Tailscale
+- Signed container images
+- Vulnerability scanning pipeline
+- Centralized logging / SIEM integration
+- Intrusion detection monitoring
 
 ---
 
-## Quick Start
+## Getting Started (Copy/Paste)
 
-### 1. Start the Stack
+1. Create config:
+
+```bash
+cp .env.example .env
+# edit .env
+```
+
+2. Start the stack:
 
 ```bash
 docker compose up -d --build
 ```
 
-### 2. Pull Lightweight Models
+3. Download a few lightweight models:
 
 ```bash
 docker exec -it ollama ollama pull phi
@@ -136,30 +192,62 @@ docker exec -it ollama ollama pull dolphin-phi
 docker exec -it ollama ollama list
 ```
 
-Model catalog:
-https://ollama.com/library
+Model catalog: `https://ollama.com/library`
 
 ---
 
-## Inviting Remote Users
+## Invite Users (Friends / Colleagues)
 
-This is invite-only.
+This is invite-only by design:
 
-1. Invite user to your Tailscale network
-2. User generates SSH key (Termius recommended)
-3. Add their public key to the gateway
-4. They connect to your Tailscale IP
-5. They land directly inside the chat program
+1. Invite the user into your Tailscale network.
+2. The user generates an SSH key (Termius recommended).
+3. Add their **public** key to a gateway instance.
+4. They connect to your Tailscale IP and land directly in the chat program.
 
 They never get a Linux shell.
 
-Access can be revoked instantly by removing their key.
+Detailed onboarding:
+
+- `docs/FRIENDS.md`
 
 ---
 
-## Emergency Shutdown
+## Customizing Models (Modelfile Copies)
 
-Stop the stack:
+Create a copy of an existing model with your own system prompt:
+
+```bash
+docker exec -it ollama sh -lc 'cat > /tmp/Modelfile.custom << "EOF"
+FROM dolphin-phi:latest
+SYSTEM """You are the company assistant. Be concise and professional."""
+EOF'
+
+docker exec -it ollama ollama create company-assistant -f /tmp/Modelfile.custom
+docker exec -it ollama ollama list | grep company-assistant
+```
+
+---
+
+## Data & Privacy (What Is and Isn't Stored)
+
+Designed behavior:
+
+- Inference runs locally (Ollama in Docker).
+- The gateway can be configured to avoid persisting chat logs.
+- Optional log auto-purge (24h retention) can be enabled.
+
+Caveats:
+
+- Tailscale uses a cloud coordination plane (traffic is end-to-end encrypted).
+- Termius may sync configuration data if enabled.
+- Mobile devices may store scrollback locally (and backups may capture app data).
+
+---
+
+## Emergency Shutdown (Mac Terminal)
+
+Stop this stack:
 
 ```bash
 docker compose down
@@ -171,83 +259,24 @@ Stop all containers:
 docker stop $(docker ps -q)
 ```
 
-Remove a user:
-- Delete their public SSH key
-- Redeploy gateway container
-
 ---
 
-## Managing Models
+## Skills Demonstrated
 
-List installed models:
+This repository demonstrates practical experience with:
 
-```bash
-docker exec -it ollama ollama list
-```
-
-Add a model:
-
-```bash
-docker exec -it ollama ollama pull <model>
-```
-
-Create a custom assistant:
-
-```bash
-docker exec -it ollama sh -lc 'cat > /tmp/Modelfile.custom << "EOF"
-FROM dolphin-phi:latest
-SYSTEM """You are the company assistant. Be concise and professional."""
-EOF'
-
-docker exec -it ollama ollama create company-assistant -f /tmp/Modelfile.custom
-```
-
----
-
-## UI Philosophy
-
-This is not a web app.
-
-The gateway is a terminal-based chat program with:
-
-- Margins and wrapping
-- Clean formatting
-- “thinking…” animation with elapsed time
-- Model selection support (v2)
-
-It is intentionally minimal and infrastructure-first.
-
----
-
-## Repo Structure
-
-- `docker-compose.yml` — Ollama + gateway
-- `gateway/` — SSH + chat entrypoint
-- `docs/` — onboarding & invite flow
-- `scripts/` — operational helpers
-
----
-
-## Use Cases
-
-- Private internal AI assistant
-- Founder-only remote LLM access
-- Invite-only research tool
-- Secure edge AI prototype
-- Early-stage AI infrastructure lab
-
----
-
-## Positioning
-
-RemoteSantis is not a consumer app.  
-It’s a private edge AI infrastructure template.
-
-Remote does not have to mean cloud.  
-You can own your inference layer.
+- Docker networking and isolation
+- SSH hardening configuration
+- Key-based authentication systems
+- Forced command restrictions
+- Network exposure control
+- Threat modeling and risk analysis
+- Secure architecture documentation
+- Least privilege design
 
 ---
 
 ## License
 
-Choose a license before publishing (MIT / Apache-2.0 / etc).
+Pick a license before publishing (MIT / Apache-2.0 / etc.). This template includes an MIT license stub.
+
